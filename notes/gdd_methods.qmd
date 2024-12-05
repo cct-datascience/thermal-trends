@@ -1,0 +1,87 @@
+---
+title: "GDD Methods"
+author: "Eric R. Scott"
+format: html
+editor: visual
+---
+
+```{r}
+library(targets)
+library(fs)
+library(terra)
+library(sf)
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+tar_load(c(prism_tmean, cities_sf), store = here::here("_targets"))
+```
+
+```{r}
+rast_dir <- here::here(prism_tmean[1])
+files <- dir_ls(rast_dir, glob = "*.zip")
+
+  #convert filenames to DOY to name layers later
+  doys <- files |>
+    fs::path_file() |>
+    stringr::str_extract("\\d{8}") |>
+    lubridate::ymd() |> 
+    lubridate::yday()
+  
+  #construct paths with /vsizip/ to read inside .zip files
+  bils <- 
+    files |> 
+    fs::path_file() |>
+    fs::path_ext_set(".bil")
+  rast_paths <- paste0("/vsizip/", fs::path(files, bils))
+  
+  
+  prism <- terra::rast(here::here(rast_paths))
+  names(prism) <- doys
+  units(prism) <- "ºC"
+  prism
+```
+
+extract a few pixels for testing
+
+```{r}
+cities_tmean <- terra::extract(prism, cities_sf) |>
+  pivot_longer(
+    -ID,
+    names_to = "DOY",
+    values_to = "tmean_c",
+    names_transform = list(DOY = as.integer)
+  ) |> 
+  mutate(ID = as.factor(ID))
+cities_tmean
+```
+
+```{r}
+ggplot(cities_tmean, aes(x = DOY, y = tmean_c, color = ID)) +
+  geom_line()
+```
+
+Define growing degrees function
+
+```{r}
+calc_gd_simple <- function(tmean, base = 0) {
+    if (base != 0) {
+      dd <- tmean - base
+    } else {
+      dd <- tmean
+    }
+    dd[dd < 0] <- 0
+    dd
+  }
+```
+
+apply and get cumulative GDD
+
+```{r}
+cities_gdd <- cities_tmean |> 
+  group_by(ID) |> 
+  mutate(gd = calc_gd_simple(tmean = tmean_c, base = 10),
+         gdd = cumsum(gd))
+  
+ggplot(cities_gdd, aes(x = DOY, y = gd, color = ID)) + geom_line()
+ggplot(cities_gdd, aes(x = DOY, y = gdd, color = ID)) + geom_line()
+```

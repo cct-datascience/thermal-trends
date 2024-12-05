@@ -119,12 +119,28 @@ tar_source()
 main <- tar_plan(
   years = 1981:2023,
   tar_target(
+    name = prism_tmin,
+    command = get_prism(years, "tmin"),
+    pattern = map(years),
+    deployment = "main",
+    format = "file",
+    description = "download PRISM tmin"
+  ),
+  tar_target(
+    name = prism_tmax,
+    command = get_prism(years, "tmax"),
+    pattern = map(years),
+    deployment = "main",
+    format = "file",
+    description = "download PRISM tmax"
+  ),
+  tar_target(
     name = prism_tmean,
-    command = get_prism_tmean(years),
+    command = get_prism(years, "tmean"),
     pattern = map(years),
     deployment = "main", #prevent downloads from running in parallel on distributed workers
     format = "file", 
-    description = "download PRISM data"
+    description = "download PRISM tmean"
   ),
   tar_terra_vect(
     roi,
