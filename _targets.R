@@ -19,6 +19,7 @@ hpc <- grepl("hpc\\.arizona\\.edu", slurm_host) & !grepl("ood", slurm_host)
 controller_hpc_light <- 
   crew.cluster::crew_controller_slurm(
     name = "hpc_light",
+    host = Sys.info()["nodename"],
     workers = 5, 
     # make workers semi-persistent: 
     tasks_max = 40, # shut down SLURM job after completing 40 targets
@@ -34,7 +35,7 @@ controller_hpc_light <-
       log_error = "logs/crew_log_%A.err",
       memory_gigabytes_per_cpu = 5,
       cpus_per_task = 3, #use 3 cpus per worker
-      time_minutes = 60, #wall time for each worker
+      time_minutes = 360, #wall time for each worker
       partition = "standard"
     )
   )
@@ -42,9 +43,10 @@ controller_hpc_light <-
 controller_hpc_heavy <- 
   crew.cluster::crew_controller_slurm(
     name = "hpc_heavy",
+    host = Sys.info()["nodename"],
     workers = 3, 
     tasks_max = 20,
-    seconds_idle = 1000,
+    seconds_idle = 300,
     options_cluster = crew_options_slurm(
       script_lines = c(
         "#SBATCH --account theresam",
@@ -174,22 +176,30 @@ gams <- tar_plan(
   tar_target(
     gam_df_50gdd,
     make_gam_df(gdd_doy_stack_50, res = 25000),
-    format = "qs"
+    format = tar_format_nanoparquet()
   ),
   tar_target(
     gam_df_400gdd,
     make_gam_df(gdd_doy_stack_400, res = 25000),
-    format = "qs"
+    format = tar_format_nanoparquet()
   ),
   tar_target(
     gam_df_800gdd,
     make_gam_df(gdd_doy_stack_800, res = 25000),
-    format = "qs"
+    format = tar_format_nanoparquet()
   ),
   #fit gams
   tar_target(
     gam_50gdd,
     fit_bam(gam_df_50gdd, k_spatial = 1000),
+    format = "qs",
+    resources = tar_resources(
+      crew = tar_resources_crew(controller = ifelse(isTRUE(hpc), "hpc_heavy", "local"))
+    )
+  ),
+  tar_target(
+    gam_50gdd_gp,
+    fit_bam_gp(gam_df_50gdd, k_spatial = 1000),
     format = "qs",
     resources = tar_resources(
       crew = tar_resources_crew(controller = ifelse(isTRUE(hpc), "hpc_heavy", "local"))
@@ -214,6 +224,10 @@ gams <- tar_plan(
   tar_file(
     smooths_50gdd,
     draw_smooth_estimates(gam_50gdd, roi)
+  ),
+  tar_file(
+    smooths_50gdd_gp,
+    draw_smooth_estimates(gam_50gdd_gp, roi)
   ),
   tar_file(
     smooths_400gdd,

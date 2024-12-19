@@ -1,0 +1,43 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(targets)
+library(mgcv)
+library(gratia)
+tar_load(c(gam_50gdd, gam_50gdd_gp), store = here::here("_targets"))
+```
+
+```{r}
+summary(gam_50gdd)
+```
+
+```{r}
+summary(gam_50gdd_gp)
+```
+
+```{r}
+AIC(gam_50gdd, gam_50gdd_gp)
+```
+
+The tensor product version (original) has slightly higher R2 and lower AIC.
+
+```{r}
+tar_meta(starts_with("gam_50gdd"), fields = "seconds")
+```
+
+It also is slightly faster to run as a tensor product (surprising)\
+\
+
+```{r}
+knitr::include_graphics(tar_read(smooths_50gdd, store = here::here("_targets")))
+```
+
+```{r}
+knitr::include_graphics(tar_read(smooths_50gdd_gp, store = here::here("_targets")))
+```
+
+Partial effects plots are nearly identical, so stick with tensor product.
