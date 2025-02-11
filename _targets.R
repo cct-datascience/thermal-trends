@@ -161,39 +161,39 @@ main <- tarchetypes::tar_plan(
     ),
     # Combine list of SpatRasters into multi-layer SpatRaster
     tar_terra_rast(
-      gdd_doy_stack,
+      stack,
       terra::rast(unname(gdd_doy))
     ),
     #summary statistics across years
     tar_target(
       doy_range,
-      range(gdd_doy_stack) |> values() |> range(na.rm = TRUE)
+      range(stack) |> values() |> range(na.rm = TRUE)
     ),
     tar_terra_rast(
       doy_mean,
       #should NAs be removed?  NAs are "never reached this threshold", not "missing data"
-      mean(gdd_doy_stack, na.rm = TRUE) 
+      mean(stack, na.rm = TRUE) 
     ),
     tar_terra_rast(
       doy_min,
-      min(gdd_doy_stack, na.rm = TRUE) 
+      min(stack, na.rm = TRUE) 
     ),
     tar_terra_rast(
       doy_max,
-      max(gdd_doy_stack, na.rm = TRUE) 
+      max(stack, na.rm = TRUE) 
     ),
     tar_terra_rast(
       doy_count,
-      count_gdd_reached(stack = gdd_doy_stack, roi = roi),
+      count_gdd_reached(stack = stack, roi = roi),
       description = "how many years reached this threshold"
     ),
     tar_terra_rast(
       doy_sd,
-      stdev(gdd_doy_stack, na.rm = TRUE)
+      stdev(stack, na.rm = TRUE)
     ),
     tar_target(
       gam_df,
-      make_gam_df(gdd_doy_stack, res = 25000),
+      make_gam_df(stack, res = 25000),
       format = "qs"
     ),
     ## GAMs ###
@@ -244,27 +244,28 @@ main <- tarchetypes::tar_plan(
 )
 
 slopes <- tar_plan(
-  tar_target(
-    slope_newdata,
-    #doesn't matter which dataset since all that is used is x,y, and year_scaled
-    #using very coarse newdata regardless of resolution of original data.
-    make_slope_newdata(gdd_doy_stack_650, res_m = 25000) |>
-      dplyr::group_by(group) |>
-      targets::tar_group(),
-    #grouped by about 1000 pixels per group
-    iteration = "group",
-    format = "qs"
-  ),
   tar_map(
-    values = list(gam = rlang::syms(glue::glue("gam_{threshold}"))),
+    values = list(
+      stack = rlang::syms(glue::glue("stack_{threshold}")),
+      gam = rlang::syms(glue::glue("gam_{threshold}"))
+    ),
+    tar_target(
+      newdata,
+      make_slope_newdata(stack, res_m = 25000) |>
+        dplyr::group_by(group) |>
+        targets::tar_group(),
+      #grouped by about 1000 pixels per group
+      iteration = "group",
+      format = "qs"
+    ),
     tar_target(
       slopes,
-      calc_avg_slopes(gam, slope_newdata),
+      calc_avg_slopes(gam, newdata),
       packages = c("marginaleffects", "mgcv"),
       resources = tar_resources(
         crew = tar_resources_crew(controller = ifelse(isTRUE(hpc), "hpc_heavy", "local"))
       ),
-      pattern = map(slope_newdata),
+      pattern = map(newdata),
       format = tar_format_nanoparquet()
     ),
     tar_target(
@@ -282,12 +283,12 @@ slopes <- tar_plan(
 slopes_plots <- tar_plan(
   tar_target(
     slope_range,
-    range(!!!rlang::syms(glue::glue("slope_range_gam_{threshold}"))),
+    range(!!!rlang::syms(glue::glue("slope_range_stack_{threshold}_gam_{threshold}"))),
     description = "range across all thresholds for colorbar",
     tidy_eval = TRUE
   ),
   tar_map(
-    values = list(slopes = rlang::syms(glue::glue("slopes_gam_{threshold}"))),
+    values = list(slopes = rlang::syms(glue::glue("slopes_stack_{threshold}_gam_{threshold}"))),
     tar_file(
       slopes_plot,
       plot_avg_slopes(slopes, slope_range, roi),
@@ -306,7 +307,7 @@ slopes_plots <- tar_plan(
     # values = list(threshold = threshold),
     # tar_target(
     #   gam_df,
-    #   make_gam_df(gdd_doy_stack_650, res = 25000),
+    #   make_gam_df(stack_650, res = 25000),
     #   format = "qs"
     # )
   # )
@@ -353,7 +354,7 @@ slopes_plots <- tar_plan(
   #   slope_newdata,
   #   #doesn't matter which dataset since all that is used is x,y, and year_scaled
   #   #using very coarse newdata regardless of resolution of original data.
-  #   make_slope_newdata(gdd_doy_stack_650, res_m = 25000) |>
+  #   make_slope_newdata(stack_650, res_m = 25000) |>
   #     dplyr::group_by(group) |>
   #     targets::tar_group(),
   #   #grouped by about 1000 pixels per group

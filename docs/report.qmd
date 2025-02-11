@@ -23,7 +23,9 @@ tar_load(c(
   count_plot,
   appraisal_50, appraisal_650, appraisal_1250, appraisal_1950, appraisal_2500,
   k_check_50, k_check_650, k_check_1250, k_check_1950, k_check_2500,
-  slopes_plot_slopes_gam_50, slopes_plot_slopes_gam_650, slopes_plot_slopes_gam_1250, slopes_plot_slopes_gam_1950, slopes_plot_slopes_gam_2500
+  slopes_plot_slopes_stack_50_gam_50, slopes_plot_slopes_stack_650_gam_650, 
+  slopes_plot_slopes_stack_1250_gam_1250, slopes_plot_slopes_stack_1950_gam_1950, 
+  slopes_plot_slopes_stack_2500_gam_2500
  ),
  store = here("_targets"))
 ```
@@ -56,7 +58,13 @@ appraisals <-
         overwrite = TRUE
     )
 
-slope_plots_orig <- c(slopes_plot_slopes_gam_50, slopes_plot_slopes_gam_650, slopes_plot_slopes_gam_1250, slopes_plot_slopes_gam_1950, slopes_plot_slopes_gam_2500)
+slope_plots_orig <- c(
+    slopes_plot_slopes_stack_50_gam_50,
+    slopes_plot_slopes_stack_650_gam_650,
+    slopes_plot_slopes_stack_1250_gam_1250,
+    slopes_plot_slopes_stack_1950_gam_1950, 
+    slopes_plot_slopes_stack_2500_gam_2500
+)
 slope_plots <- 
     file_copy(
         path = here(slope_plots_orig), new_path = path(here("docs", "img"), path_file(slope_plots_orig)),
@@ -136,8 +144,3 @@ Another entirely different option that may be more appropriate because of its GA
 ```{r}
 knitr::include_graphics(slope_plots)
 ```
-
-::: callout-warning
-For the 2500 GDD threshold, there actually isn't any data in the most northern parts of the US and the fitted values from the GAM should be ignored there.
-A refined version of this plot could remove any pixels too far from where there is actual observed data (a common practice for visualizing 2D smooths from GAMs).
-:::
