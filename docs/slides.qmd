@@ -1,0 +1,115 @@
+---
+title: "GAM Update"
+format: revealjs
+---
+
+## Problems  {.smaller}
+
+::::: columns
+::: {.column width="20%"}
+-   leptokurtic
+
+-   variance increases with DOY
+:::
+
+::: {.column width="80%"}
+![](img/appraisal_gam_2500.png){width="80%"}
+:::
+:::::
+
+## Cause (?) {.smaller}
+
+- DOY is left-truncated (can't be less than 0) and right-censored (we don't "know" what happens after 365 days).
+- Doesn't fit assumptions of normality
+- This is time-to-event data is better understood with survival analysis tools
+
+(this would be more obvious if we used 365 for pixels that never reach the threshold)
+```{r}
+#| label: fig-hist
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Histogram of DOY for 650 GDD"
+#|   - "Histogram of DOY for 1950 GDD"
+library(ggplot2)
+library(dplyr)
+library(targets)
+tar_load(c(gam_df_650, gam_df_1950), store = here::here("_targets"))
+
+ggplot(gam_df_650, aes(DOY)) +
+    # facet_wrap(vars(year)) +
+     geom_histogram(bins = 70) + 
+     scale_x_continuous(limits = c(0, 365)) 
+
+ggplot(gam_df_1950, aes(DOY)) +
+     geom_histogram(bins = 70) + 
+     scale_x_continuous(limits = c(0, 365))
+```
+
+## Time-to-event data {.smaller}
+
+Let's say we have a medical study where patients get one of two treatments and we track them for 10 years and record if and when they die.
+```{r}
+tibble::tribble(
+~patient, ~treatment, ~last_year,
+1, "A", 7.6, 
+2, "B", 3.3, 
+3, "A", 10, 
+4, "B", 10
+) |> knitr::kable()
+
+```
+
+- Patient 1 lived longer than patient 2, leading us to think treatment A is better.
+- Patient 3 and 4 both survived the entire 10 years, but we don't know how long they lived!
+- Similarly, pixels that never reach the GDD threshold in 356 days are not all equivalent!
+
+## The solution
+
+- Piece-wise exponential Additive Mixed Models (PAMMs)
+- Involves re-parameterizing data to plug into a Poisson (count) GAM
+
+
+```{r}
+#| label: tbl-pem
+#| tbl-cap: Rows for patient B in data transformed for input to a PAMM
+tibble::tribble(
+    ~patient, ~interval, ~status, ~offset, ~treatment,
+    2, "(0,1]", 0, log(1), "B",
+    2, "(1,2]", 0, log(1), "B",
+    2, "(3,4]", 1, log(0.3), "B"
+) |> knitr::kable()
+```
+
+## Options
+
+1. PAMM
+    - Pros:
+        - Continue using GAM framework
+        - Able to make inferences
+        - Can report relative importance of space and time
+    - Cons:
+        - Will take me time to learn and implement
+        - Increases data size and model run time significantly
+        - More difficult to explain
+        - Response variable is now probability of an event occurring, so more difficult to make average slopes map and explain it
+
+## Options
+
+2. Observational per-pixel "best fit line" map
+    - Pros:
+        - Simple to implement and explain
+    - Cons:
+        - Would need to be explicit about not being able to make statistical inference on spatial scale
+        - Can't quantify relative importance of space and time
+
+*Possibly* appropriate to pick a **few** point locations and report effect sizes ± confidence intervals from linear regressions
+
+## Options
+
+3. Try to stick with the current approach using scaled-t family error distribution (for leptokurtic residuals)
+    - Pros:
+        - We've already basically done it (implementing should be very quick)
+    - Cons:
+        - Assumes different areas for each threshold model(?)
+        - Caveat that the data is probably still better treated as time-to-event
+        - Might not "fix" model diagnostics.
