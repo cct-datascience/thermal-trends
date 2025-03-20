@@ -11,13 +11,22 @@ fit_bam <- function(data, k_spatial, safe = FALSE) {
       ti(x, y, bs = "tp", d = 2, k = k_spatial) +
       ti(year_scaled, bs = "cr", k = 40) +
       ti(x, y, year_scaled, d = c(2,1), bs = c("tp", "cr"), k = c(200, 20)),
-    # family = scat(),
+    family = Gamma(link = "log"),
     data = data,
     discrete = TRUE, #speeds up computation
     samfrac = 0.1, #speeds up computation
     method = "fREML",
     nthreads = c(1, 1)
     # nthreads = c(2, 1) # *possibly* speeds up computation
+  )
+}
+
+fit_gamlss2 <- function(data) {
+  gamlss2::gamlss2(
+    DOY ~ ti(x, y, d = 2, k = 500) + ti(year_scaled, bs = "cr", k = 40) + ti(x, y, year_scaled, d = c(2,1), bs = c("tp", "cr"), k = c(200, 20)) | s(y),
+    data = data,
+    family = gamlss.dist::GG, #generalized gamma appears to fit slightly better than regular gamma (GA)
+    trace = FALSE
   )
 }
 

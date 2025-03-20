@@ -13,7 +13,12 @@ plot(gamlss_test, which = "scatter-resid")
 
 #wow, cool.  seems to have helped!
 
-plot(gamlss_test, which = "effects", term = 3)
+#sigma (variance) vs. latitude
+options(scipen = 999)
+plot(gamlss_test, which = "effects", term = 3, scale = 0, xlab = "latitude (m)")
+options(scipen = 0)
+
+summary(gamlss_test)
 
 #can I get avg_slopes() to "just work"
 library(marginaleffects)

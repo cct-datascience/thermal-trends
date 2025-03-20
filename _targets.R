@@ -253,7 +253,7 @@ slopes <- tar_plan(
     ),
     tar_target(
       newdata,
-      make_slope_newdata(stack, res_m = 25000) |>
+      make_slope_newdata(stack, res_m = 50000) |>
         dplyr::group_by(group) |>
         targets::tar_group(),
       #grouped by about 1000 pixels per group
@@ -446,6 +446,23 @@ tarchetypes::tar_plan(
   main,
   slopes,
   slopes_plots,
+  tar_target(
+    gamlss_test,
+    fit_gamlss2(data = gam_df_1950),
+    packages = c("gamlss2", "gamlss", "gamlss.dist", "mgcv")
+  ),
+
+  # Doesn't work currently due to no methods in marginaleffects for gamlss2
+  # tar_target(
+  #   gamlss_slopes,
+  #   calc_avg_slopes(gamlss_test, newdata_stack_1950_gam_1950),
+  #     packages = c("marginaleffects", "mgcv", "gamlss2"),
+  #     resources = tar_resources(
+  #       crew = tar_resources_crew(controller = ifelse(isTRUE(hpc), "hpc_heavy", "local"))
+  #     ),
+  #     pattern = map(newdata_stack_1950_gam_1950),
+  #     format = tar_format_nanoparquet()
+  #   ),
   # tarchetypes::tar_quarto(report, "docs/report.qmd", quiet = FALSE)
   # gams,
   # city_slopes,
